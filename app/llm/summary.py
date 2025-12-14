@@ -1,14 +1,14 @@
 import os
-from openai import OpenAI
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 def generate_summary(score: int, level: str, features: dict):
     prompt = f"""
-You are an honest and strict coding mentor.
+You are a strict but helpful coding mentor.
 
 Repository evaluation:
 Score: {score}
@@ -22,9 +22,10 @@ Use bullet points for the roadmap.
 """
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="llama3-8b-8192",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
+        temperature=0.3,
+        max_tokens=300
     )
 
     text = response.choices[0].message.content.strip().splitlines()
