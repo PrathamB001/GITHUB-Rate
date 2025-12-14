@@ -8,6 +8,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 def fetch_repo_data(repo_url: str):
     repo_name = repo_url.replace("https://github.com/", "").strip("/")
+
     gh = Github(GITHUB_TOKEN) if GITHUB_TOKEN else Github()
     repo = gh.get_repo(repo_name)
 
