@@ -1,8 +1,7 @@
-# GITHUB-Rate
+# RateMyGit
 
-An AI-powered system that evaluates a public GitHub repository and provides a meaningful **score**, **qualitative summary**, and **personalized improvement roadmap**.
-
-The goal is to help students (and developers) understand how their GitHub projects appear to recruiters, mentors, and potential collaborators — based purely on repository quality and good development practices.
+An AI-powered system that evaluates a public GitHub repository and provides a meaningful score, qualitative summary, and personalized improvement roadmap.
+The goal is to help students (and developers) understand how their GitHub projects appear to recruiters, mentors, and potential collaborators based purely on repository quality and good development practices.
 
 ## Problem Statement
 
@@ -14,7 +13,7 @@ A GitHub repository is a developer’s most visible proof of work. Yet most stud
 - Testing practices
 - Development consistency (commit history, branching, etc.)
 
-**GITHUB-Rate** acts as a **Repository Mirror**, reflecting real strengths and weaknesses through automated analysis and AI-generated feedback.
+RateMyGit acts as a repo mirror, reflecting real strengths and weaknesses through automated analysis and AI-generated feedback.
 
 ## Features
 
@@ -57,3 +56,4 @@ A GitHub repository is a developer’s most visible proof of work. Yet most stud
 git clone https://github.com/your-username/GITHUB-Rate.git
 cd GITHUB-Rate
 pip install -r requirements.txt
+
