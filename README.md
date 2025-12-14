@@ -56,4 +56,10 @@ RateMyGit acts as a repo mirror, reflecting real strengths and weaknesses throug
 git clone https://github.com/your-username/GITHUB-Rate.git
 cd GITHUB-Rate
 pip install -r requirements.txt
+```
+Create a .env file in the root directory
+Start the Server using 
+```bash
+uvicorn app.main:app --reload
+```
 
