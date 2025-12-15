@@ -3,7 +3,7 @@
 An AI-powered system that evaluates a public GitHub repository and provides a meaningful score, qualitative summary, and personalized improvement roadmap.
 The goal is to help students (and developers) understand how their GitHub projects appear to recruiters, mentors, and potential collaborators based purely on repository quality and good development practices.
 
-Video Demonstration : https://tinyurl.com/yydwnh27
+Video Demonstration : https://tinyurl.com/34tj3bfh
 
 ## Problem Statement
 
@@ -105,6 +105,7 @@ Start the Server using
 ```bash
 uvicorn app.main:app --reload
 ```
+
 
 
 
