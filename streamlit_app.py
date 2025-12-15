@@ -12,7 +12,7 @@ from app.analysis.structure_analysis import analyze_structure
 from app.analysis.proof_of_work import analyze_proof_of_work
 
 
-# ---------- PAGE CONFIG ----------
+# PAGE CONFIG
 st.set_page_config(
     page_title="RateMyGit",
     page_icon="🤩",
@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 
-# ---------- BACKGROUND ----------
+#  BACKGROUND
 def set_bg(image_file):
     with open(image_file, "rb") as f:
         encoded = base64.b64encode(f.read()).decode()
@@ -44,7 +44,7 @@ def set_bg(image_file):
 set_bg("assets/img2.png")
 
 
-# ---------- STYLES ----------
+#  STYLES
 st.markdown(
     """
     <style>
@@ -112,7 +112,7 @@ st.markdown(
 )
 
 
-# ---------- HEADER ----------
+#  HEADER
 st.markdown("<h1>RateMyGit 🤩</h1>", unsafe_allow_html=True)
 st.markdown(
     "<p class='description'>Analyze any public GitHub repository and get a detailed score, qualitative summary, and personalized improvement roadmap.</p>",
@@ -120,7 +120,7 @@ st.markdown(
 )
 
 
-# ---------- INPUT ----------
+# INPUT
 repo_url = st.text_input(
     "GitHub Repository URL",
     placeholder="https://github.com/username/repository",
@@ -130,18 +130,18 @@ repo_url = st.text_input(
 analyze_btn = st.button("Analyze Repository")
 
 
-# ---------- ANALYSIS ----------
+#  ANALYSIS
 if analyze_btn:
     if not repo_url.strip() or not repo_url.startswith("https://github.com/"):
         st.error("⚠️ Please enter a valid public GitHub repository URL.")
     else:
         with st.spinner("Analyzing your repository..."):
             try:
-                # ---------- FETCH ----------
+                #  FETCH
                 repo_data = fetch_repo_data(repo_url)
                 features = analyze_repo(repo_data)
 
-                # ---------- BUILD LLM INPUTS ----------
+                #  BUILD LLM INPUTS
                 sample_code = ""
                 for f in repo_data.get("files", []):
                     if f.endswith(".py"):
@@ -157,7 +157,7 @@ if analyze_btn:
                 for f in repo_data.get("files", [])[:15]:
                     tree_summary += f"  {f}\n"
 
-                # ---------- ANALYSES ----------
+                #  ANALYSIS
                 code_quality = analyze_code_quality(sample_code)
                 structure = analyze_structure(tree_summary)
                 proof_of_work = analyze_proof_of_work(repo_data.get("readme_text", ""))
@@ -171,7 +171,7 @@ if analyze_btn:
 
                 summary, roadmap = generate_summary(score, level, features)
 
-                # ---------- RESULTS ----------
+                #  RESULTS
                 st.markdown(f'<div class="big-score">{score}/100</div>', unsafe_allow_html=True)
                 st.markdown(f'<div class="level">Level: <strong>{level}</strong></div>', unsafe_allow_html=True)
 
@@ -182,16 +182,15 @@ if analyze_btn:
                 for step in roadmap:
                     st.markdown(f"- {step}")
 
-                # ---------- STATS ----------
-                # ---------- STATS ----------
+
                 st.markdown('<h2 class="section-title">Repository Stats</h2>', unsafe_allow_html=True)
 
-                # --- Score Breakdown ---
+                # Score Breakdown
                 st.subheader("Score Breakdown")
                 for k, v in breakdown.items():
                     st.write(f"- **{k}**: {v}")
 
-                # --- Code Quality ---
+                #  Code Quality
                 st.subheader("Code Quality Review")
                 cq_score = code_quality.get("score", "N/A")
                 st.write(f"Overall code quality score: **{cq_score}/10**")
@@ -206,7 +205,7 @@ if analyze_btn:
                     for fix in code_quality["actionable_fixes"]:
                         st.write(f"- {fix}")
 
-                # --- Structure ---
+                #  Structure
                 st.subheader("Project Structure Review")
                 struct_score = structure.get("structure_score", "N/A")
                 st.write(f"Structure score: **{struct_score}/10**")
@@ -221,7 +220,7 @@ if analyze_btn:
                     for suggestion in structure["suggestions"]:
                         st.write(f"- {suggestion}")
 
-                # --- Proof of Work ---
+                #Proof of Work
                 st.subheader("Proof of Work")
 
                 if proof_of_work.get("score") == "STRONG":
