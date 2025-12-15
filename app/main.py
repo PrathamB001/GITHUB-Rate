@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from app.models.schemas import RepoRequest, RepoResponse
-from app.github.fetcher import fetch_repo_data
+from app.gh_utils.fetcher import fetch_repo_data
 from app.analysis.repo_analyzer import analyze_repo
 from app.analysis.scorer import score_repo
 from app.llm.summary import generate_summary

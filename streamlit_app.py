@@ -1,12 +1,15 @@
 import streamlit as st
 import base64
 
-from app.github.fetcher import fetch_repo_data
+from app.gh_utils.fetcher import fetch_repo_data, fetch_file_content
 from app.analysis.repo_analyzer import analyze_repo
 from app.analysis.scorer import score_repo
 from app.llm.summary import generate_summary
-from app.github.similar_projects import fetch_similar_projects
-from app.llm.keyword_extractor import extract_keywords_from_repo
+
+# NEW analysis imports
+from app.analysis.code_quality import analyze_code_quality
+from app.analysis.structure_analysis import analyze_structure
+from app.analysis.proof_of_work import analyze_proof_of_work
 
 
 # ---------- PAGE CONFIG ----------
@@ -51,14 +54,12 @@ st.markdown(
         font-size: 3.5rem;
         margin-bottom: 0.5rem;
     }
-
     .description {
         text-align: center;
         color: #EDE9FE;
         font-size: 1.3rem;
         margin-bottom: 2rem;
     }
-
     .stTextInput > div > div > input {
         background-color: rgba(76, 29, 149, 0.7) !important;
         color: #FFFFFF !important;
@@ -68,7 +69,6 @@ st.markdown(
         font-size: 1.1rem;
         text-align: center;
     }
-
     div.stButton > button {
         background-color: #7C3AED;
         color: #FFFFFF;
@@ -80,11 +80,6 @@ st.markdown(
         display: block;
         margin: 2rem auto;
     }
-
-    div.stButton > button:hover {
-        background-color: #6D28D9;
-    }
-
     .big-score {
         font-size: 6rem;
         color: #FDE68A;
@@ -92,21 +87,18 @@ st.markdown(
         font-weight: 900;
         margin: 2rem 0;
     }
-
     .level {
         text-align: center;
         font-size: 2.2rem;
         color: #FFFFFF;
         margin-bottom: 3rem;
     }
-
     .section-title {
         color: #FFFFFF;
         font-size: 2rem;
         margin-top: 3rem;
     }
-
-    .summary, .roadmap-item {
+    .summary {
         color: #EDE9FE;
         font-size: 1.3rem;
         line-height: 1.8;
@@ -145,58 +137,39 @@ if analyze_btn:
     else:
         with st.spinner("Analyzing your repository..."):
             try:
-                # Core analysis
+                # ---------- FETCH ----------
                 repo_data = fetch_repo_data(repo_url)
                 features = analyze_repo(repo_data)
-                score, level, breakdown = score_repo(features)
+
+                # ---------- BUILD LLM INPUTS ----------
+                sample_code = ""
+                for f in repo_data.get("files", []):
+                    if f.endswith(".py"):
+                        try:
+                            sample_code = fetch_file_content(repo_url, f)[:3500]
+                            break
+                        except Exception:
+                            pass
+
+                tree_summary = ""
+                for folder in repo_data.get("folders", []):
+                    tree_summary += f"{folder}/\n"
+                for f in repo_data.get("files", [])[:15]:
+                    tree_summary += f"  {f}\n"
+
+                # ---------- ANALYSES ----------
+                code_quality = analyze_code_quality(sample_code)
+                structure = analyze_structure(tree_summary)
+                proof_of_work = analyze_proof_of_work(repo_data.get("readme_text", ""))
+
+                score, level, breakdown = score_repo(
+                    features,
+                    code_quality=code_quality,
+                    structure=structure,
+                    proof_of_work=proof_of_work
+                )
+
                 summary, roadmap = generate_summary(score, level, features)
-                primary_language = max(
-                    repo_data.get("languages", {}),
-                    key=repo_data.get("languages", {}).get,
-                    default=None
-                ) if repo_data.get("languages") else None
-                # Initialize keywords safely
-                keywords = []
-
-
-
-                # Keyword extraction
-                llm_info = extract_keywords_from_repo(
-                    description=repo_data.get("description", ""),
-                    readme_text=repo_data.get("readme_text", "")
-                )
-                keywords = llm_info.get("keywords", [])
-                # Fallback: if no keywords from LLM, use primary language
-                if not keywords and primary_language:
-                    keywords = [primary_language.lower()]
-                EXPANSION_MAP = {
-                    "ml": ["machine learning", "deep learning", "model"],
-                    "api": ["backend", "rest", "service", "fastapi"]
-                }
-
-
-                expanded = []
-                for kw in keywords:
-                    expanded.append(kw)
-                    expanded.extend(EXPANSION_MAP.get(kw.lower(), []))
-
-                # Deduplicate + cap
-                keywords = list(dict.fromkeys(expanded))[:6]
-
-                if not keywords:
-                    keywords = [primary_language.lower()]
-
-
-
-
-
-
-                similar_projects = fetch_similar_projects(
-                    keywords=keywords,
-                    primary_language=primary_language,
-                    exclude_repo=repo_url.replace("https://github.com/", "")
-                )
-
 
                 # ---------- RESULTS ----------
                 st.markdown(f'<div class="big-score">{score}/100</div>', unsafe_allow_html=True)
@@ -205,42 +178,64 @@ if analyze_btn:
                 st.markdown('<h2 class="section-title">Summary</h2>', unsafe_allow_html=True)
                 st.markdown(f'<p class="summary">{summary}</p>', unsafe_allow_html=True)
 
-                # ---------- ROADMAP (FIXED) ----------
-                st.markdown(
-                    '<h2 class="section-title">Personalized Improvement Roadmap</h2>',
-                    unsafe_allow_html=True
-                )
+                st.markdown('<h2 class="section-title">Personalized Improvement Roadmap</h2>', unsafe_allow_html=True)
+                for step in roadmap:
+                    st.markdown(f"- {step}")
 
-                # DEBUG — remove later
-                st.write(f"Roadmap items generated: {len(roadmap)}")
+                # ---------- STATS ----------
+                # ---------- STATS ----------
+                st.markdown('<h2 class="section-title">Repository Stats</h2>', unsafe_allow_html=True)
 
-                if roadmap and len(roadmap) > 0:
-                    for step in roadmap:
-                        st.markdown(f"- {step}")
+                # --- Score Breakdown ---
+                st.subheader("Score Breakdown")
+                for k, v in breakdown.items():
+                    st.write(f"- **{k}**: {v}")
+
+                # --- Code Quality ---
+                st.subheader("Code Quality Review")
+                cq_score = code_quality.get("score", "N/A")
+                st.write(f"Overall code quality score: **{cq_score}/10**")
+
+                if code_quality.get("issues"):
+                    st.write("Main issues found:")
+                    for issue in code_quality["issues"]:
+                        st.write(f"- {issue}")
+
+                if code_quality.get("actionable_fixes"):
+                    st.write("Recommended improvements:")
+                    for fix in code_quality["actionable_fixes"]:
+                        st.write(f"- {fix}")
+
+                # --- Structure ---
+                st.subheader("Project Structure Review")
+                struct_score = structure.get("structure_score", "N/A")
+                st.write(f"Structure score: **{struct_score}/10**")
+
+                if structure.get("issues"):
+                    st.write("Structural issues:")
+                    for issue in structure["issues"]:
+                        st.write(f"- {issue}")
+
+                if structure.get("suggestions"):
+                    st.write("How to improve the structure:")
+                    for suggestion in structure["suggestions"]:
+                        st.write(f"- {suggestion}")
+
+                # --- Proof of Work ---
+                st.subheader("Proof of Work")
+
+                if proof_of_work.get("score") == "STRONG":
+                    st.success("This repository shows strong proof of work.")
+                    if proof_of_work.get("signals"):
+                        st.write("Evidence found:")
+                        for signal in proof_of_work["signals"]:
+                            st.write(f"- {signal}")
                 else:
                     st.warning(
-                        "No specific roadmap items were generated for this repository. "
-                        "This usually happens when the repository structure is very minimal."
+                        "No strong proof of work detected. "
+                        "Consider adding screenshots, demo videos, or a live deployment link."
                     )
 
-                # ---------- SIMILAR PROJECTS ----------
-                if similar_projects:
-                    st.markdown(
-                        '<h2 class="section-title">Similar High-Quality Open Source Projects</h2>',
-                        unsafe_allow_html=True
-                    )
-
-                    st.write(
-                        "These repositories are semantically similar based on project intent, domain, and tech stack:"
-                    )
-
-                    for proj in similar_projects:
-                        st.markdown(
-                            f"• **[{proj['name']}]({proj['url']})** ⭐ {proj['stars']}  \n"
-                            f"{proj['description']}"
-                        )
-
-                # Success at the END
                 st.success("Analysis Complete! ✅")
 
             except Exception as e:

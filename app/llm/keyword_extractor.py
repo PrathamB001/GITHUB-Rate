@@ -4,25 +4,27 @@ from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
-
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 def extract_keywords_from_repo(description: str, readme_text: str) -> dict:
     """
-    LLM-driven intent extraction for GitHub search.
-    Output is STRICT JSON used directly for GitHub API querying.
+    Extract GitHub-search-optimized keywords.
+    LLM may internally reason in categories, but MUST output final keywords only.
     """
 
     prompt = f"""
 You are an expert GitHub project analyst.
 
-Your task is to extract SEARCH-OPTIMIZED intent from a repository
-so that similar, high-quality repositories can be found via GitHub Search.
+Your goal is to generate KEYWORDS that will WORK WELL with GitHub Search.
 
-This is NOT a summarization task.
-This is NOT about tools or frameworks.
-This is about identifying the REAL PROBLEM DOMAIN and CORE FUNCTION.
+You may internally think in categories like:
+- domain keywords
+- functional keywords
+- secondary context keywords
+
+But you must OUTPUT ONLY the FINAL keywords that should be used
+DIRECTLY in GitHub repository search.
 
 Repository Description:
 {description or "No description"}
@@ -30,28 +32,24 @@ Repository Description:
 README excerpt:
 {readme_text[:3500]}
 
-Return ONLY valid JSON in EXACTLY this format:
+Format (OUTPUT EXACTLY THIS JSON):
 
 {{
-  "summary": "<one clear sentence describing what this project does>",
-  "problem_domain": ["domain-1", "domain-2"],
-  "core_function": ["function-1", "function-2"],
-  "search_phrases": ["phrase-1", "phrase-2", "phrase-3"]
+  "summary": "One short sentence describing what the project does",
+  "keywords": ["keyword1", "keyword2", "keyword3", "keyword4"]
 }}
 
 Rules:
-- problem_domain MUST be real-world areas (finance, security, healthcare, vision, nlp, geospatial, robotics, forecasting, etc.)
-- core_function MUST be actions (prediction, detection, estimation, tracking, analysis, classification, monitoring)
-- search_phrases MUST combine domain + function (e.g. "fraud-detection", "time-series-forecasting")
-- search_phrases MUST be suitable for GitHub repository search
-- Use lowercase only
+- Return 3 to 5 keywords ONLY
+- Keywords must be concrete phrases likely to appear in GitHub repos
+- Use lowercase
 - Use hyphens instead of spaces
-- Be specific and concrete, not abstract
-- NEVER include tooling or implementation words:
-  ml, ai, model, app, tool, api, python, streamlit, flask, django, react, framework, sdk, library
-- If the domain or function is not explicitly stated, INFER it from context
-- Do NOT return generic placeholders
-- Do NOT return empty fields
+- Keywords should represent DOMAIN + PURPOSE
+- NEVER include generic or tooling words:
+  streamlit, flask, django, react, ml, ai, model, app, tool, framework, api, python
+- If multiple categories are possible, choose the ONE set
+  that best represents what someone would name a similar repo
+- If keywords are not explicitly present, INFER realistic repo-style names
 - Output ONLY valid JSON, nothing else
 """
 
@@ -60,47 +58,27 @@ Rules:
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
-            max_tokens=220
+            max_tokens=150
         )
 
-        raw = response.choices[0].message.content.strip()
-        data = json.loads(raw)
+        data = json.loads(response.choices[0].message.content.strip())
 
-        # ---- HARD VALIDATION & CLEANING ----
-        summary = data.get("summary", "").strip()
-        problem_domain = data.get("problem_domain", [])
-        core_function = data.get("core_function", [])
-        search_phrases = data.get("search_phrases", [])
+        keywords = [
+            k.lower().strip().replace(" ", "-")
+            for k in data.get("keywords", [])
+            if isinstance(k, str) and len(k) > 3
+        ]
 
-        if not summary or not problem_domain or not core_function or not search_phrases:
-            raise ValueError("Incomplete LLM output")
-
-        def clean(arr, min_len):
-            return [
-                x.lower().strip().replace(" ", "-")
-                for x in arr
-                if isinstance(x, str) and len(x.strip()) >= min_len
-            ]
-
-        problem_domain = clean(problem_domain, 3)
-        core_function = clean(core_function, 4)
-        search_phrases = clean(search_phrases, 6)
-
-        if not problem_domain or not search_phrases:
-            raise ValueError("Invalid cleaned output")
+        if len(keywords) < 3:
+            raise ValueError("Too few keywords")
 
         return {
-            "summary": summary,
-            "problem_domain": problem_domain[:3],
-            "core_function": core_function[:3],
-            "search_phrases": search_phrases[:5]
+            "summary": data.get("summary", ""),
+            "keywords": keywords[:5]
         }
 
     except Exception:
-        # Schema-safe fallback (still search-usable, no tool leakage)
         return {
-            "summary": description[:120] or "Software project with inferred purpose",
-            "problem_domain": ["software"],
-            "core_function": ["analysis"],
-            "search_phrases": ["software-analysis"]
+            "summary": description[:100] or "Software project",
+            "keywords": ["software-project", "codebase-analysis", "developer-tooling"]
         }

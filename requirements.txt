@@ -6,3 +6,4 @@ python-dotenv
 pydantic
 PyGithub
 streamlit
+huggingface_hub
